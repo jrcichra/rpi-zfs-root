@@ -28,6 +28,8 @@ sudo zfs create -o mountpoint=/ rastank/ubuntu
 
 ^^^ you'll need to put in -f somewhere in the zpool command to force overwriting that dummy ext4 partition. I'll let you put that in because the above command is indeed destructive with -f. Make sure you're on the right Pi, and mmcblk0p3 is really the extra parition.
 
+#### If you're a ZFS veteran, you should be able to customize your dataset and mounts (i.e different dataset for var, home, usr, etc). I'll likely try this in a later deployment.
+
 The second command is creating our root dataset, hence we tell it to mount at /.
 
 Continuing with the guide, I ran this apt install: `sudo apt-get install pv di dialog` to get some insight into the next tar copy.
@@ -41,7 +43,7 @@ You might get an error about snapcraft, just ignore it. I haven't tested snapcra
 
 Remove the fstab entry for the ext4 / partition (it actually works with this in but it's good practice): `vi /mnt/rastank/etc/fstab`
 
-Make sure zfs is in our initramfs (should be from our apt install earlier): `lsinitramfs /boot/initrd.img-4.14.30-v7+ | grep bin/z`
+Make sure zfs is in our initramfs (should be from our apt install earlier): `lsinitramfs /boot/initrd.img-5.4.0-1008-raspi | grep bin/z`
 
 I added this in /boot/firmware/usercfg.txt. Not sure if it's required/matters:
 `initramfs initrd.img-5.4.0-1008-raspi followkernel`
@@ -51,9 +53,9 @@ Your kernel might be different than mine. Do `uname -r` and replace (or just try
 Next we need to tell the initramfs what to do. This is done in cmdline.txt. Here's mine:
 `net.ifnames=0 dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=ZFS=rastank/ubuntu rootfstype=zfs elevator=noop rootwait fixrtc plymouth.enable=0 zfs.zfs_arc_max=67108864`
 
-You can copy this overtop of your existing cmdline.txt. We're telling initramfs that our root volume is of type zfs and is the dataset rastank/ubuntu (or whatever you called it)
+You can copy this over top of your existing cmdline.txt. We're telling initramfs that our root volume is of type zfs and is the dataset rastank/ubuntu (or whatever you called it)
 
-`reboot`. After a few minutes of it complaining about a missing file in /tmp, which has few hits on Google, it should continue the boot process and give a prompt + ssh access.
+`reboot`. After a few minutes of it complaining about a missing file in /tmp, which has few hits on Google, it should continue the boot process and give a prompt + ssh access. If you figure this out please open an issue or PR this guide.
 
 If you do `df -h` you should see your new rootfs as the zfs dataset name:
 ```
@@ -75,10 +77,10 @@ tmpfs           380M     0  380M   0% /run/user/1000
 ubuntu@ubuntu:/boot/firmware$ 
 ```
 
-Awesome! You're running a zfs rooted raspberry pi (high five!). There's one more optimization I made before calling it a successful night. We still have that old ext4 partition with our old root. I went ahead and added that partition into the pool by doing this:
+Awesome! You're running a zfs rooted raspberry pi (high five!). There's one more optimization I made before calling it a successful night. We still have that old ext4 partition with our old root. I went ahead and added that partition in the pool by doing this:
 `zpool add rastank /dev/mmcblk0p2`
 
-Again, this needs -f to work - make sure p2 is the ext4 partition that was our old root fs.
+Again, this needs -f to work - make sure mmcblk0p2 is the ext4 partition that was our old root fs and you're on the proper Pi.
 
 Cool! Now you have 3 partitions, one for loading the initramfs (that fat32 parition) and two zfs partitions.
 
@@ -121,3 +123,11 @@ root@ubuntu:~#
 ```
 
 Check that out! We're saving 1.1Gigs of SD card storage with lz4 compression. It's very low overhead and a Pi4 should be able to handle it.
+
+If you're wondering where some of your storage went (28.8G in zpool list vs 26.5G in zfs list) - read up on `spa_slop_shift`. TLDR zfs is reserving some space for things like `snapshot`, so you can still manage the pool on a full filesystem: https://utcc.utoronto.ca/~cks/space/blog/solaris/ZFSSpaceReportDifference
+
+You can modify the value by echoing into this /sys/ file: `/sys/module/zfs/parameters/spa_slop_shift` if you want to reclaim some space, but just know the risks you are taking. See this question I asked the openzfs community for details on what the number means: https://github.com/openzfs/zfs/issues/10260#issuecomment-620332829
+
+That's it! Feel free to do whatever you want with this Pi! It's a working Linux system with ZFS storage underneath.
+
+If this article helped you, please leave a comment in the open issue and let me know! I'd love to hear your use cases/feedback.
