@@ -1,5 +1,5 @@
 # rpi-zfs-root
-Guide on running a raspberry pi with a ZFS root filesystem (ubuntu based)
+Guide on running a Raspberry Pi with a ZFS root filesystem (Ubuntu based)
 
 This guide is heavily inspired and derived from the work done by the zfsonlinux folks. I'm sharing my experience on May 12, 2020, having little success with building zfs on the 32 bit OS that is raspbian.
 
