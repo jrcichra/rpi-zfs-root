@@ -37,7 +37,7 @@ Continuing with the guide, I ran this apt install: `sudo apt-get install pv di d
 We're ready to copy our filesystem off of the ext4 parition onto our zfs dataset, which should be mounted at /mnt/rastank. Run this to copy it:
 
 ```
-(cd /; sudo tar cf - --one-file-system . ) | pv -p -bs $( sudo du -sxm --apparent-size / | cut -f1 )m | (sudo tar -xp /mnt/rastank)
+(cd /; sudo tar cf - --one-file-system . ) | pv -p -bs $( sudo du -sxm --apparent-size / | cut -f1 )m | (sudo tar -xp -C /mnt/rastank)
 ```
 You might get an error about snapcraft, just ignore it. I haven't tested snapcraft but I'm sure a reinstall would do the trick.
 
