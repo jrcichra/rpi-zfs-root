@@ -130,4 +130,6 @@ You can modify the value by echoing into this /sys/ file: `/sys/module/zfs/param
 
 That's it! Feel free to do whatever you want with this Pi! It's a working Linux system with ZFS storage underneath.
 
+I personally like turning on snapshot visibility with `zpool set listsnapshots=on rastank`.
+
 If this article helped you, please leave a comment in the open issue and let me know! I'd love to hear your use cases/feedback.
