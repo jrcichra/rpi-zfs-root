@@ -28,9 +28,22 @@ sudo zfs create -o mountpoint=/ rastank/ubuntu
 
 ^^^ you'll need to put in -f somewhere in the zpool command to force overwriting that dummy ext4 partition. I'll let you put that in because the above command is indeed destructive with -f. Make sure you're on the right Pi, and mmcblk0p3 is really the extra parition.
 
-#### If you're a ZFS veteran, you should be able to customize your dataset and mounts (i.e different dataset for var, home, usr, etc). I'll likely try this in a later deployment.
-
 The second command is creating our root dataset, hence we tell it to mount at /.
+
+#### If you want to segregate out different pieces of your filesystem, this is the time (make /var, /home, etc). This is how I did mine (with zfs create -o mountpoint=<> rastank/ubuntu/<>)
+```
+rastank                                                                                              2.15G  25.9G       96K  /mnt/rastank
+rastank/ubuntu                                                                                       2.14G  25.9G     1.09G  /
+rastank/ubuntu/home                                                                                   876K  25.9G      164K  /home
+rastank/ubuntu/home/lancache                                                                          360K  25.9G      360K  /home/ubuntu/lancache
+rastank/ubuntu/var                                                                                   1.02G  25.9G     76.7M  /var
+rastank/ubuntu/var/lib                                                                                812M  25.9G      295M  /var/lib
+rastank/ubuntu/var/lib/docker                                                                         507M  25.9G     92.0M  /var/lib/docker
+rastank/ubuntu/var/log                                                                               17.7M  25.9G     2.69M  /var/log
+rastank/ubuntu/var/spool                                                                              232K  25.9G      120K  /var/spool
+```
+
+If you use docker, having `/var/lib/docker` as a zfs filesystem (probably with snapshots off) will default it to using the zfs driver for managing volumes.
 
 Continuing with the guide, I ran this apt install: `sudo apt-get install pv di dialog` to get some insight into the next tar copy.
 
