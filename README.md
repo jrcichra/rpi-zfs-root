@@ -1,21 +1,28 @@
 # rpi-zfs-root
-Guide on running a Raspberry Pi with a ZFS root filesystem (Ubuntu based)
+Guide on running a Raspberry Pi with a ZFS root filesystem (Ubuntu/Manjaro ARM)
 
 This guide is heavily inspired and derived from the work done by the zfsonlinux folks. I'm sharing my experience on May 12, 2020, having little success with building zfs on the 32 bit OS that is raspbian.
 
-#### Note - the only downside of this approach as of writing is the Pi takes a few minutes to boot. It's getting caught up in some systemd service that eventually times out. 
+#### Note - On Ubuntu, the only downside of this approach as of writing is the Pi takes a few minutes to boot. It's getting caught up in some systemd service that eventually times out. 
 
-A friend suggested using the latest 20.04 Ubuntu Raspberry Pi edition, since it is 64 bits and the main x86 branch has zfs support. I downloaded the Pi4 tar.xz here: https://ubuntu.com/download/raspberry-pi and loaded it onto a 32GB SD card.
+A friend suggested using the latest 20.04 Ubuntu Raspberry Pi edition, since it is 64 bits and the main x86 branch has zfs support. I downloaded the Pi4 tar.xz here: https://ubuntu.com/download/raspberry-pi and loaded it onto a 32GB SD card. For Manjaro, I downloaded a copy here: https://manjaro.org/downloads/arm/raspberry-pi-4/arm8-raspberry-pi-4-kde-plasma/
 
-NOTE: This Ubuntu install will (somewhere I can't find) invoke a resize2fs to fill your SD card after every boot. I circumvented this by making an additonal dummy ext4 partition that fills my SD card, leaving me with the standard fat32 /boot parition, and two ext4s, one blank and one with my standard ubuntu OS. I then took the card and plugged it into the Pi4. SSH was already enabled, so I could do ssh ubuntu@ubuntu, password ubuntu. You might have to find the IP of the host if your router doesn't support reverse dns hostname lookup through DHCP.
+NOTE: This Ubuntu install will (somewhere I can't find) invoke a resize2fs to fill your SD card after every boot. I circumvented this by making an additonal dummy ext4 partition that fills my SD card, leaving me with the standard fat32 /boot parition, and two ext4s, one blank and one with my standard ubuntu OS. I then took the card and plugged it into the Pi4. SSH was already enabled, so I could do ssh ubuntu@ubuntu, password ubuntu. You might have to find the IP of the host if your router doesn't support reverse dns hostname lookup through DHCP. Manjaro also fills up the SD card. For it, I let it do its thing with the resizing, then shrinked the partition on another computer, but I'm sure both methods work for each.
 
 Next, I kept my eye on this guide from the zfsonlinux github wiki: https://github.com/zfsonlinux/pkg-zfs/wiki/HOWTO-install-Raspbian-to-a-Native-ZFS-Root-Filesystem,-or,-How-I-Learned-to-Love-Data-Integrity. It goes through how to do this on Raspbian, but I hit little luck with this. (I compiled zfs right out of github and copying my root fs was hanging somewhere in the internals of ZFS [kernelspace] - not fun).
 
-As most projects go, I did some googling to start, and found this reddit post: https://www.reddit.com/r/zfs/comments/ekl4e1/ubuntu_with_zfs_on_raspberry_pi_4/
+As most projects go, I did some googling to start for Ubuntu, and found this reddit post: https://www.reddit.com/r/zfs/comments/ekl4e1/ubuntu_with_zfs_on_raspberry_pi_4/
 
-A commenter suggests running `sudo apt install zfs-dkms`. So I did. It seemed to successfully install zfs (I could do zfs and zpool commands), but I took it one step further and install two additional packages after this completed building - `zfsutils-linux` and `zfs-initramfs` (installing these didn't hurt, and we likely need something from zfs-initramfs for this project).
+A commenter suggests running `sudo apt install zfs-dkms`. So I did. It seemed to successfully install zfs (I could do zfs and zpool commands), but I took it one step further and install two additional packages after this completed building - `zfsutils-linux` and `zfs-initramfs` (installing these didn't hurt, and we likely need something from zfs-initramfs for this project). 
 
 I skipped all the building parts / paritioning of the above wiki tutorial, since we just did with two `apt get` commands (the hard part is done)
+
+For Manjaro, I used the Arch Wiki: https://wiki.archlinux.org/index.php/ZFS, installed `yay` for the AUR, and did `yay -S zfs-dkms`, which compiled and installed zfs (with the only issue being GPL/CDDL, fix here: https://github.com/openzfs/zfs/issues/9948#issuecomment-641615483, you'll need to flip the license to GPL (if this is a hobby install) and rerun dkms with `sudo dkms install --no-depmod -m zfs -v 0.8.4 -k 5.4.51-2-MANJARO-ARM`. `yay` might also fail on gpg keys, which if so, I imported mine like this:
+```
+gpg --keyserver pool.sks-keyservers.net  --recv-keys C33DF142657ED1F7C328A2960AB9E991C6AF658B
+gpg --keyserver pool.sks-keyservers.net  --recv-keys 4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027
+```
+For Manjaro, I enabled the systemctl configs as suggested and added the zfs module to modprobe (see instructions in the wiki). Then you'll need to generate the initramfs with the zfs module inside. I did this by modifying `/etc/mkinitcpio.conf`, adding zfs as the last hook in the array, then running `mkinitcpio -P` to regenerate the initramfs.
 
 We're actually ready to make our pool on top of the dummy 3rd parition we made (make sure it looks right in `parted`)
 
@@ -26,7 +33,7 @@ sudo zpool create -o ashift=12 -O canmount=off -O compression=lz4 -O normalizati
 sudo zfs create -o mountpoint=/ rastank/ubuntu
 ```
 
-^^^ you'll need to put in -f somewhere in the zpool command to force overwriting that dummy ext4 partition. I'll let you put that in because the above command is indeed destructive with -f. Make sure you're on the right Pi, and mmcblk0p3 is really the extra parition.
+^^^ you'll need to put in -f somewhere in the zpool command to force overwriting that dummy partition. I'll let you put that in because the above command is indeed destructive with -f. Make sure you're on the right Pi, and mmcblk0p3 is really the extra parition.
 
 The second command is creating our root dataset, hence we tell it to mount at /.
 
@@ -42,33 +49,36 @@ rastank/ubuntu/var/lib/docker                                                   
 rastank/ubuntu/var/log                                                                               17.7M  25.9G     2.69M  /var/log
 rastank/ubuntu/var/spool                                                                              232K  25.9G      120K  /var/spool
 ```
+(Replace Ubuntu with Manjaro or whatever you prefer)
 
 If you use docker, having `/var/lib/docker` as a zfs filesystem (probably with snapshots off) will default it to using the zfs driver for managing volumes.
 
-Continuing with the guide, I ran this apt install: `sudo apt-get install pv di dialog` to get some insight into the next tar copy.
+Continuing with the guide, I ran this apt install: `sudo apt-get install pv di dialog` to get some insight into the next tar copy. (Manjaro just needs `pacman -S pv`
 
 We're ready to copy our filesystem off of the ext4 parition onto our zfs dataset, which should be mounted at /mnt/rastank. Run this to copy it:
 
 ```
 (cd /; sudo tar cf - --one-file-system . ) | pv -p -bs $( sudo du -sxm --apparent-size / | cut -f1 )m | (sudo tar -xp -C /mnt/rastank)
 ```
-You might get an error about snapcraft, just ignore it. I haven't tested snapcraft but I'm sure a reinstall would do the trick.
+You might get an error about snapcraft on Ubuntu, just ignore it. I haven't tested snapcraft but I'm sure a reinstall would do the trick.
 
 Remove the fstab entry for the ext4 / partition (it actually works with this in but it's good practice): `vi /mnt/rastank/etc/fstab`
 
-Make sure zfs is in our initramfs (should be from our apt install earlier): `lsinitramfs /boot/initrd.img-5.4.0-1008-raspi | grep bin/z`
+Make sure zfs is in our initramfs (should be from our apt install earlier): `lsinitramfs /boot/initrd.img-5.4.0-1008-raspi | grep bin/z`. For Manjaro, I checked with `strings *img | grep zfs` in the initramfs img in /boot.
 
-I added this in /boot/firmware/usercfg.txt. Not sure if it's required/matters:
+I added this in /boot/firmware/usercfg.txt only for Ubuntu. Not sure if it's required/matters:
 `initramfs initrd.img-5.4.0-1008-raspi followkernel`
 
 Your kernel might be different than mine. Do `uname -r` and replace (or just try without this and make a PR if it works!)
 
-Next we need to tell the initramfs what to do. This is done in cmdline.txt. Here's mine:
+Next we need to tell the initramfs what to do. This is done in cmdline.txt. Here's mine for Ubuntu:
 `net.ifnames=0 dwc_otg.lpm_enable=0 console=serial0,115200 console=tty1 root=ZFS=rastank/ubuntu rootfstype=zfs elevator=noop rootwait fixrtc plymouth.enable=0 zfs.zfs_arc_max=67108864`
+...and here's mine for Manjaro:
+`zfs=rastank/manjaro rootfstype=zfs rw rootwait console=ttyAMA0,115200 console=tty1 selinux=0 plymouth.enable=0 smsc95xx.turbo_mode=N dwc_otg.lpm_enable=0 kgdboc=ttyAMA0,115200 zfs.zfs_arc_max=67108864 elevator=noop snd-bcm2835.enable_compat_alsa=0`
 
 You can copy this over top of your existing cmdline.txt. We're telling initramfs that our root volume is of type zfs and is the dataset rastank/ubuntu (or whatever you called it)
 
-`reboot`. After a few minutes of it complaining about a missing file in /tmp, which has few hits on Google, it should continue the boot process and give a prompt + ssh access. If you figure this out please open an issue or PR this guide.
+`reboot`. On Ubuntu, after a few minutes of it complaining about a missing file in /tmp, which has few hits on Google, it should continue the boot process and give a prompt + ssh access. If you figure this out please open an issue or PR this guide. Manjaro starts without any noticiable hickups.
 
 If you do `df -h` you should see your new rootfs as the zfs dataset name:
 ```
