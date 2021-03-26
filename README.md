@@ -22,7 +22,7 @@ For Manjaro, I used the Arch Wiki: https://wiki.archlinux.org/index.php/ZFS, ins
 gpg --keyserver pool.sks-keyservers.net  --recv-keys C33DF142657ED1F7C328A2960AB9E991C6AF658B
 gpg --keyserver pool.sks-keyservers.net  --recv-keys 4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027
 ```
-For Manjaro, I enabled the systemctl configs as suggested and added the zfs module to modprobe (see instructions in the wiki). Then you'll need to generate the initramfs with the zfs module inside. I did this by modifying `/etc/mkinitcpio.conf`, adding zfs as the last hook in the array, then running `mkinitcpio -P` to regenerate the initramfs.
+For Manjaro, I enabled the systemctl configs as suggested and added the zfs module to modprobe (see instructions in the wiki). Then you'll need to generate the initramfs with the zfs module inside. I did this by modifying `/etc/mkinitcpio.conf`, adding `zfs` before `filesystems` in the array (see https://wiki.archlinux.org/index.php/Install_Arch_Linux_on_ZFS#Install_and_configure_Arch_Linux), then running `mkinitcpio -P` to regenerate the initramfs.
 
 We're actually ready to make our pool on top of the dummy 3rd parition we made (make sure it looks right in `parted`)
 
